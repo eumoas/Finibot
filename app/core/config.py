@@ -52,9 +52,21 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        if self.database_url.startswith("postgresql://"):
-            return self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return self.database_url
+        url = self._strip_env_assignment(self.database_url, "DATABASE_URL")
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @property
+    def normalized_redis_url(self) -> str:
+        return self._strip_env_assignment(self.redis_url, "REDIS_URL")
+
+    @staticmethod
+    def _strip_env_assignment(value: str, key: str) -> str:
+        prefix = f"{key}="
+        if value.startswith(prefix):
+            return value[len(prefix):]
+        return value
 
 
 @lru_cache

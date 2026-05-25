@@ -10,7 +10,7 @@ async def get_redis() -> aioredis.Redis:
     global _redis_pool
     if _redis_pool is None:
         _redis_pool = aioredis.from_url(
-            settings.redis_url,
+            settings.normalized_redis_url,
             encoding="utf-8",
             decode_responses=True,
         )
