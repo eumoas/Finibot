@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     def use_webhook(self) -> bool:
         return self.is_production and bool(self.webhook_url)
 
+    @property
+    def async_database_url(self) -> str:
+        if self.database_url.startswith("postgresql://"):
+            return self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return self.database_url
+
 
 @lru_cache
 def get_settings() -> Settings:
