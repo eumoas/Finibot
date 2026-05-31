@@ -6,6 +6,7 @@ import pytest
 from openpyxl import load_workbook
 from io import BytesIO
 from app.flows.finance_flow import (
+    ParsedTransaction,
     parse_transaction_args,
     parse_transaction_draft,
     _month_range,
@@ -44,6 +45,26 @@ def test_parse_natural_income_message_with_preposition():
     parsed = parse_transaction_args("recebi 200 de mesada")
 
     assert parsed == (Decimal("200.00"), "Mesada", None)
+
+
+def test_parse_mesada_ignores_currency_and_filler_words():
+    parsed = parse_transaction_args("recebi minha primeira mesada de 300 reais")
+
+    assert parsed == (Decimal("300.00"), "Mesada", None)
+
+
+def test_llm_parse_mesada_ignores_noisy_description():
+    parsed = ParsedTransaction(
+        found=True,
+        transaction_type="income",
+        amount=Decimal("300.00"),
+        category="Mesada",
+        description="minha primeira reais",
+    )
+
+    draft = parsed.to_draft(today=date(2026, 5, 31))
+
+    assert draft.description is None
 
 
 def test_parse_lanche_as_alimentacao():

@@ -80,6 +80,10 @@ STOPWORDS = {
     "em",
     "c",
     "hoje",
+    "meu",
+    "meus",
+    "minha",
+    "minhas",
     "na",
     "no",
     "nos",
@@ -89,7 +93,14 @@ STOPWORDS = {
     "ontem",
     "por",
     "pra",
+    "primeira",
+    "primeiro",
     "pro",
+    "real",
+    "reais",
+    "rs",
+    "conto",
+    "contos",
     "um",
     "uma",
     "uns",
@@ -359,11 +370,12 @@ class ParsedTransaction(BaseModel):
         if not self.found or not self.transaction_type or self.amount is None:
             return None
         current = today or date.today()
-        description = (self.description or "").strip()[:100] or None
+        category = _canonical_category(self.category, self.transaction_type)
+        description = _clean_llm_description(self.description, category)
         return TransactionDraft(
             transaction_type=self.transaction_type,
             amount=self.amount.quantize(Decimal("0.01")),
-            category=_canonical_category(self.category, self.transaction_type),
+            category=category,
             description=description,
             happened_on=current + timedelta(days=self.date_offset or 0),
         )
@@ -413,6 +425,20 @@ def _clean_description(words: list[str], category: str) -> str | None:
         useful = [word for word in useful if word not in {"viage", "viagem", "viajem"}]
     description = " ".join(useful).strip()
     return description or None
+
+
+def _clean_llm_description(description: str | None, category: str) -> str | None:
+    if not description:
+        return None
+
+    normalized_category = _normalize(category)
+    category_words = set(re.findall(r"[\w]+", normalized_category))
+    words = re.findall(r"[\w]+", _normalize(description))
+    useful = [word for word in words if word not in STOPWORDS]
+    if not useful or set(useful) <= category_words:
+        return None
+
+    return " ".join(useful)[:100] or None
 
 
 def parse_transaction_draft(
