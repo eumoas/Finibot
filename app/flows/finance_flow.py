@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import logging
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ from app.repositories.user_repo import UserRepository
 from app.services.gamification import GamificationEngine
 from app.services.llm_service import llm_gateway
 from app.prompts.insight_prompt import build_insight_context, should_generate_insight
+
+logger = logging.getLogger(__name__)
 
 INCOME_HELP = """💰 *Registrar receita*
 
@@ -68,6 +71,7 @@ STOPWORDS = {
     "do",
     "dos",
     "em",
+    "c",
     "hoje",
     "na",
     "no",
@@ -77,8 +81,12 @@ STOPWORDS = {
     "o",
     "ontem",
     "por",
+    "pra",
+    "pro",
     "um",
     "uma",
+    "uns",
+    "umas",
 }
 
 CATEGORY_KEYWORDS = {
@@ -91,13 +99,28 @@ CATEGORY_KEYWORDS = {
         "lanche",
         "mercado",
         "pizza",
+        "refri",
         "restaurante",
+        "rango",
         "salgado",
+        "snack",
     },
-    "transporte": {"99", "bus", "metro", "onibus", "passagem", "transporte", "uber"},
+    "transporte": {
+        "99",
+        "bus",
+        "busao",
+        "metro",
+        "moto",
+        "onibus",
+        "passagem",
+        "trem",
+        "transporte",
+        "uber",
+    },
     "educacao": {"apostila", "curso", "escola", "estudo", "faculdade", "livro"},
-    "lazer": {"cinema", "festa", "game", "jogo", "lazer", "passeio", "show"},
+    "lazer": {"cinema", "festa", "game", "jogo", "lazer", "passeio", "role", "show"},
     "compras": {"blusa", "camisa", "compra", "comprei", "loja", "roupa", "tenis"},
+    "viagem": {"galera", "glr", "hotel", "passagem", "pousada", "viajar", "viage", "viagem", "viajem"},
     "saude": {"dentista", "farmacia", "medico", "remedio", "saude"},
     "moradia": {"agua", "aluguel", "condominio", "energia", "internet", "luz"},
     "mesada": {"mesada"},
@@ -172,6 +195,36 @@ def _normalize(text: str) -> str:
     return "".join(char for char in normalized if not unicodedata.combining(char))
 
 
+async def _generate_optional_insight(context: dict | str) -> str | None:
+    try:
+        insight = await llm_gateway.generate_insight(context)
+    except Exception as exc:
+        logger.warning("Insight indisponivel; seguindo sem insight: %s", exc)
+        return None
+
+    if not insight:
+        return None
+
+    normalized = _normalize(insight)
+    if "problema tecnico" in normalized or "probleminha tecnico" in normalized:
+        logger.warning("Insight omitido porque o LLM retornou mensagem tecnica: %r", insight)
+        return None
+
+    return insight
+
+
+def _plain_text_from_markdown(text: str) -> str:
+    return text.replace("*", "").replace("`", "")
+
+
+async def _reply_markdown_safe(message, text: str):
+    try:
+        await message.reply_text(text, parse_mode="Markdown")
+    except Exception as exc:
+        logger.warning("Falha ao enviar Markdown; reenviando como texto simples: %s", exc)
+        await message.reply_text(_plain_text_from_markdown(text))
+
+
 EXPENSE_CATEGORY_OPTIONS = {
     _normalize(category): category for category in EXPENSE_CATEGORIES
 }
@@ -185,6 +238,10 @@ CATEGORY_ALIASES = {
     "saude": "Saúde",
     "transporte": "Transporte",
     "lazer": "Lazer",
+    "viagem": "Viagem",
+    "viajem": "Viagem",
+    "viage": "Viagem",
+    "viajar": "Viagem",
     "assinaturas": "Assinaturas",
     "compras": "Compras",
     "presente": "Presente",
@@ -282,6 +339,8 @@ def _clean_description(words: list[str], category: str) -> str | None:
         return None
     if category in useful and len(useful) > 1:
         useful.remove(category)
+    if category == "viagem":
+        useful = [word for word in useful if word not in {"viage", "viagem", "viajem"}]
     description = " ".join(useful).strip()
     return description or None
 
@@ -533,7 +592,7 @@ async def _after_transaction_message(
                 float(summary["expenses"]),
                 user.streak_days,
             )
-            insight = await llm_gateway.generate_insight(context)
+            insight = await _generate_optional_insight(context)
             if insight:
                 lines.extend(["", f"💡 {insight}"])
 
@@ -832,11 +891,11 @@ async def handle_summary_command(update: Update, db: AsyncSession, user: User):
     previous_transactions = await repo.list_by_period(user.id, prev_start, prev_end)
 
     if not transactions:
-        await update.message.reply_text(
+        await _reply_markdown_safe(
+            update.message,
             "📭 Ainda nao tenho lancamentos deste mes.\n\n"
             "Use /receita ou /gasto para comecar.\n"
             f"{CATEGORY_HINT}",
-            parse_mode="Markdown",
         )
         return
 
@@ -886,11 +945,11 @@ async def handle_summary_command(update: Update, db: AsyncSession, user: User):
         "gastos_por_categoria": {key: float(value) for key, value in summary["by_category"].items()},
         "gastos_mes_anterior": float(previous_summary["expenses"]),
     }
-    insight = await llm_gateway.generate_insight(insight_context)
+    insight = await _generate_optional_insight(insight_context)
     if insight:
         lines.extend(["", f"💡 {insight}"])
 
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    await _reply_markdown_safe(update.message, "\n".join(lines))
 
 
 async def handle_spreadsheet_command(update: Update, db: AsyncSession, user: User):

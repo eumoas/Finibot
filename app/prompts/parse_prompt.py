@@ -19,7 +19,7 @@ Schema de saída:
 Se a mensagem não contiver uma transação financeira, retorne {"found": false}.
 
 CATEGORIAS VÁLIDAS para expense:
-  Alimentação, Transporte, Lazer, Assinaturas, Educação, Saúde, Compras, Presente, Outros
+Alimentação, Transporte, Lazer, Assinaturas, Educação, Saúde, Compras, Viagem, Presente, Outros
 
 CATEGORIAS VÁLIDAS para income:
   Mesada, Estágio, Freelas, Presente, Outros
@@ -33,6 +33,7 @@ REGRAS DE CLASSIFICAÇÃO:
 - remédio, consulta, dentista, hospital, farmácia → Saúde
 - roupa, tênis, acessório, celular, notebook, eletrônico, camiseta → Compras
 - presente pra alguém → Presente (expense)
+- viagem, viajar, hotel, passagem de viagem → Viagem (expense)
 - dinheiro de presente recebido → Presente (income)
 - mesada → Mesada (income)
 - estágio, salário → Estágio (income)

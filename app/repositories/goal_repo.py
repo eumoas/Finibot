@@ -1,5 +1,8 @@
 """Repository: Goal — metas financeiras do usuário."""
+from __future__ import annotations
+
 import uuid
+from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.goal import Goal
@@ -17,6 +20,16 @@ class GoalRepository:
             .limit(5)
         )
         return list(result.scalars().all())
+
+    async def get_active_by_id(self, user_id: uuid.UUID, goal_id: uuid.UUID) -> Goal | None:
+        result = await self.db.execute(
+            select(Goal).where(
+                Goal.id == goal_id,
+                Goal.user_id == user_id,
+                Goal.completed == False,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def create(
         self,
@@ -37,10 +50,25 @@ class GoalRepository:
         return goal
 
     async def update_progress(self, goal: Goal, amount: float) -> Goal:
-        from decimal import Decimal
         goal.current_amount = Decimal(str(amount))
         if goal.current_amount >= goal.target_amount:
             goal.completed = True
+        await self.db.commit()
+        await self.db.refresh(goal)
+        return goal
+
+    async def add_progress(self, goal: Goal, amount: Decimal) -> Goal:
+        goal.current_amount = Decimal(str(goal.current_amount or 0)) + amount
+        if goal.current_amount >= goal.target_amount:
+            goal.current_amount = goal.target_amount
+            goal.completed = True
+        await self.db.commit()
+        await self.db.refresh(goal)
+        return goal
+
+    async def complete(self, goal: Goal) -> Goal:
+        goal.current_amount = goal.target_amount
+        goal.completed = True
         await self.db.commit()
         await self.db.refresh(goal)
         return goal

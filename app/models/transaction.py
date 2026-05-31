@@ -10,7 +10,7 @@ from app.core.database import Base
 # Categorias válidas (v2 — capitalizadas com acento)
 EXPENSE_CATEGORIES = [
     "Alimentação", "Transporte", "Lazer", "Assinaturas",
-    "Educação", "Saúde", "Compras", "Presente", "Outros",
+    "Educação", "Saúde", "Compras", "Viagem", "Presente", "Outros",
 ]
 INCOME_CATEGORIES = [
     "Mesada", "Estágio", "Freelas", "Presente", "Outros",

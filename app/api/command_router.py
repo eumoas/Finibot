@@ -54,13 +54,25 @@ async def route_message(update: Update, db: AsyncSession, user: User, context_me
         await finance_flow.handle_correction_step(update, db, user)
         return
 
+    if user.current_flow == "goal_progress" and user.flow_step:
+        handled = await goal_flow.handle_goal_progress_step(update, db, user)
+        if handled:
+            return
+
     if is_betting_topic(text):
         month_summary = await _build_month_summary(db, user)
         await qa_engine.handle_question(update, db, user, context_messages, month_summary)
         return
 
-    # Tenta parsear como meta (ex: "comprar tênis - R$200")
-    if user.onboarded and "-" in text and ("R$" in text or "r$" in text):
+    if user.onboarded and simulator.looks_like_simulation_intent(text):
+        await simulator.handle_simulator_input(update, db, user, text)
+        return
+
+    # Tenta parsear como meta antes de gastos quando houver intenção clara.
+    if user.onboarded and (
+        ("-" in text and ("R$" in text or "r$" in text))
+        or goal_flow.looks_like_goal_intent(text)
+    ):
         created = await goal_flow.parse_and_create_goal(update, db, user, text)
         if created:
             return
@@ -183,6 +195,10 @@ async def handle_callback(update: Update, db: AsyncSession, user: User):
 
     handled_learning = await learning_flow.handle_learning_callback(update, db, user, data)
     if handled_learning:
+        return
+
+    handled_goal = await goal_flow.handle_goal_callback(update, db, user)
+    if handled_goal:
         return
 
     handled_transaction = await finance_flow.handle_transaction_callback(update, db, user)
