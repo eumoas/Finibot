@@ -132,6 +132,7 @@ def _parse_goal_text(text: str) -> tuple[str, Decimal] | None:
 
     patterns = [
         r"(.+?)\s*[-–]\s*[Rr]\$?\s*([\d.,]+)",
+        r"(.+?)\s+(?:no\s+|na\s+)?valor\s+(?:de\s+)?[Rr]?\$?\s*([\d.,]+)$",
         r"(.+?)\s+(?:de\s+)?[Rr]\$\s*([\d.,]+)",
         r"(.+?)\s+(?:por|para|pra|valor|objetivo)\s+(?:de\s+)?[Rr]?\$?\s*([\d.,]+)$",
         r"(.+?)\s+([\d.,]+)$",
@@ -201,7 +202,30 @@ async def handle_create_goal_command(update: Update, db: AsyncSession, user: Use
         if created:
             return
 
+    await UserRepository(db).update(user, current_flow="goal_create", flow_step="goal_create")
     await update.message.reply_text(CREATE_GOAL_HELP, parse_mode="Markdown")
+
+
+async def handle_goal_create_step(update: Update, db: AsyncSession, user: User) -> bool:
+    """Recebe a descricao da meta após o usuário chamar /meta."""
+    user_repo = UserRepository(db)
+    text = (update.message.text or "").strip()
+    if text.lower() in {"cancelar", "cancela", "cancel"}:
+        await user_repo.update(user, current_flow=None, flow_step=None)
+        await update.message.reply_text("Tudo bem, não criei nenhuma meta.")
+        return True
+
+    created = await parse_and_create_goal(update, db, user, text)
+    if created:
+        await user_repo.update(user, current_flow=None, flow_step=None)
+        return True
+
+    await user_repo.update(user, current_flow="goal_create", flow_step="goal_create")
+    await update.message.reply_text(
+        "Quase! Me manda a meta com objetivo e valor, tipo `Comprar um tênis - R$150`.",
+        parse_mode="Markdown",
+    )
+    return True
 
 
 async def parse_and_create_goal(

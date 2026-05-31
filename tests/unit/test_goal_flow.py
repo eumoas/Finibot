@@ -52,6 +52,13 @@ def test_parse_goal_text_accepts_young_informal_typing():
     )
 
 
+def test_parse_goal_text_accepts_no_valor_de_format():
+    assert _parse_goal_text("Comprar um tênis no valor de R$ 150") == (
+        "Comprar um tênis",
+        Decimal("150.00"),
+    )
+
+
 def test_looks_like_goal_intent_for_travel():
     assert looks_like_goal_intent("viajar com a galera 800")
 

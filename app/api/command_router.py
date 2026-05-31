@@ -54,6 +54,11 @@ async def route_message(update: Update, db: AsyncSession, user: User, context_me
         await finance_flow.handle_correction_step(update, db, user)
         return
 
+    if user.current_flow == "goal_create" and user.flow_step:
+        handled = await goal_flow.handle_goal_create_step(update, db, user)
+        if handled:
+            return
+
     if user.current_flow == "goal_progress" and user.flow_step:
         handled = await goal_flow.handle_goal_progress_step(update, db, user)
         if handled:
