@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import logging
 import unicodedata
+import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
@@ -37,7 +38,8 @@ EXPENSE_HELP = """🧾 *Registrar gasto*
 Use assim:
 `/gasto 18.50 alimentacao lanche`
 `/gasto 4,80 transporte onibus`
-`/gasto 29.90 assinaturas streaming`"""
+`/gasto 29.90 streaming spotify`
+`/gasto 42 cinema com o crush`"""
 
 GASTOS_HELP = """🧾 *Controle de gastos*
 
@@ -49,18 +51,23 @@ Pode me mandar frases como:
 Comandos úteis:
 /resumo — ver o mês atual
 /planilha — receber uma planilha .xlsx
+/corrigir — ajustar um lançamento já salvo
+/restart — começar do zero
 /gasto — registrar uma despesa
 /receita — registrar uma entrada"""
 
 CATEGORY_HINT = (
-    "Categorias boas para comecar: alimentacao, transporte, lazer, estudos, "
-    "assinaturas, mesada, estagio, freela, presentes."
+    "Categorias boas para comecar: alimentacao, transporte, streaming, cinema, "
+    "role, crush, games, vestuario, estudos, mesada, estagio, freela."
 )
 
 TRANSACTION_CALLBACK_CONFIRM = "tx_confirm"
 TRANSACTION_CALLBACK_CANCEL = "tx_cancel"
 TRANSACTION_CALLBACK_EDIT = "tx_edit"
 TRANSACTION_CALLBACK_EDIT_PREFIX = "tx_edit_"
+SAVED_TRANSACTION_CALLBACK_PREFIX = "tx_saved_"
+RESTART_CALLBACK_CONFIRM = "finance_restart_confirm"
+RESTART_CALLBACK_CANCEL = "finance_restart_cancel"
 
 STOPWORDS = {
     "a",
@@ -118,14 +125,44 @@ CATEGORY_KEYWORDS = {
         "uber",
     },
     "educacao": {"apostila", "curso", "escola", "estudo", "faculdade", "livro"},
-    "lazer": {"cinema", "festa", "game", "jogo", "lazer", "passeio", "role", "show"},
-    "compras": {"blusa", "camisa", "compra", "comprei", "loja", "roupa", "tenis"},
+    "streaming": {
+        "amazon",
+        "apple",
+        "deezer",
+        "disney",
+        "globoplay",
+        "hbo",
+        "max",
+        "netflix",
+        "prime",
+        "spotify",
+        "streaming",
+        "youtube",
+    },
+    "cinema_shows": {"cinema", "filme", "ingresso", "show", "teatro"},
+    "roles_encontros": {
+        "balada",
+        "crush",
+        "date",
+        "encontro",
+        "festa",
+        "lazer",
+        "passeio",
+        "role",
+        "rolê",
+        "shopping",
+    },
+    "games": {"game", "games", "jogo", "jogos", "psn", "steam", "xbox"},
+    "vestuario": {"blusa", "bone", "calca", "camisa", "camiseta", "look", "roupa", "tenis", "vestido"},
+    "beleza": {"barba", "cabelo", "corte", "cosmetico", "maquiagem", "manicure", "perfume", "salão", "salao", "unha"},
+    "compras": {"acessorio", "celular", "compra", "comprei", "eletronico", "fone", "loja", "notebook"},
     "viagem": {"galera", "glr", "hotel", "passagem", "pousada", "viajar", "viage", "viagem", "viajem"},
     "saude": {"dentista", "farmacia", "medico", "remedio", "saude"},
     "moradia": {"agua", "aluguel", "condominio", "energia", "internet", "luz"},
     "mesada": {"mesada"},
     "salario": {"bolsa", "estagio", "freela", "pagamento", "salario"},
-    "presente": {"presente", "pix"},
+    "presente": {"presente", "presentes", "pix"},
+    "bolsa_auxilio": {"auxilio", "auxílio", "bolsa"},
 }
 
 
@@ -237,18 +274,51 @@ CATEGORY_ALIASES = {
     "educacao": "Educação",
     "saude": "Saúde",
     "transporte": "Transporte",
-    "lazer": "Lazer",
+    "streaming": "Streaming",
+    "assinatura": "Streaming",
+    "assinaturas": "Streaming",
+    "netflix": "Streaming",
+    "spotify": "Streaming",
+    "cinema": "Cinema e Shows",
+    "show": "Cinema e Shows",
+    "shows": "Cinema e Shows",
+    "cinema_shows": "Cinema e Shows",
+    "cinema e shows": "Cinema e Shows",
+    "role": "Rolês e Encontros",
+    "roles": "Rolês e Encontros",
+    "rolê": "Rolês e Encontros",
+    "rolês": "Rolês e Encontros",
+    "encontro": "Rolês e Encontros",
+    "encontros": "Rolês e Encontros",
+    "crush": "Rolês e Encontros",
+    "roles_encontros": "Rolês e Encontros",
+    "rolês e encontros": "Rolês e Encontros",
+    "lazer": "Rolês e Encontros",
+    "games": "Games",
+    "game": "Games",
+    "jogos": "Games",
+    "vestuario": "Vestuário",
+    "vestuário": "Vestuário",
+    "roupa": "Vestuário",
+    "roupas": "Vestuário",
+    "tenis": "Vestuário",
+    "tênis": "Vestuário",
+    "beleza": "Beleza",
     "viagem": "Viagem",
     "viajem": "Viagem",
     "viage": "Viagem",
     "viajar": "Viagem",
-    "assinaturas": "Assinaturas",
     "compras": "Compras",
-    "presente": "Presente",
-    "presentes": "Presente",
+    "moradia": "Moradia",
+    "presente": "Presentes",
+    "presentes": "Presentes",
     "mesada": "Mesada",
     "estagio": "Estágio",
     "salario": "Estágio",
+    "bolsa": "Bolsa/Auxílio",
+    "bolsa_auxilio": "Bolsa/Auxílio",
+    "auxilio": "Bolsa/Auxílio",
+    "auxílio": "Bolsa/Auxílio",
     "freela": "Freelas",
     "freelas": "Freelas",
     "outros": "Outros",
@@ -552,6 +622,61 @@ def _transaction_saved_message(transaction: Transaction) -> str:
     )
 
 
+def _transaction_line(transaction: Transaction) -> str:
+    label = "receita" if transaction.transaction_type == "income" else "gasto"
+    description = f" - {transaction.description}" if transaction.description else ""
+    return (
+        f"{_date_pt(transaction.happened_on)} | {label} | "
+        f"{_money(transaction.amount)} | {transaction.category}{description}"
+    )
+
+
+def _saved_transaction_list_keyboard(transactions: list[Transaction]) -> InlineKeyboardMarkup:
+    rows = []
+    for index, transaction in enumerate(transactions, start=1):
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"{index}. {_money(transaction.amount)} - {transaction.category}",
+                    callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}pick:{transaction.id}",
+                )
+            ]
+        )
+    rows.append([InlineKeyboardButton("Cancelar", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}cancel")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _saved_transaction_edit_keyboard(transaction: Transaction) -> InlineKeyboardMarkup:
+    categories = INCOME_CATEGORIES if transaction.transaction_type == "income" else EXPENSE_CATEGORIES
+    category_rows = []
+    for start in range(0, min(len(categories), 12), 2):
+        row = []
+        for index in range(start, min(start + 2, len(categories))):
+            row.append(
+                InlineKeyboardButton(
+                    categories[index],
+                    callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}category:{transaction.id}:{index}",
+                )
+            )
+        category_rows.append(row)
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Tipo", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}type:{transaction.id}"),
+                InlineKeyboardButton("Valor", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}amount:{transaction.id}"),
+                InlineKeyboardButton("Descrição", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}description:{transaction.id}"),
+            ],
+            *category_rows,
+            [
+                InlineKeyboardButton("Hoje", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}date_today:{transaction.id}"),
+                InlineKeyboardButton("Ontem", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}date_yesterday:{transaction.id}"),
+            ],
+            [InlineKeyboardButton("Cancelar", callback_data=f"{SAVED_TRANSACTION_CALLBACK_PREFIX}cancel")],
+        ]
+    )
+
+
 async def _after_transaction_message(
     db: AsyncSession,
     user: User,
@@ -601,10 +726,17 @@ async def _after_transaction_message(
 
 def _edit_transaction_keyboard(draft: TransactionDraft) -> InlineKeyboardMarkup:
     categories = INCOME_CATEGORIES if draft.transaction_type == "income" else EXPENSE_CATEGORIES
-    category_buttons = [
-        InlineKeyboardButton(category, callback_data=f"{TRANSACTION_CALLBACK_EDIT_PREFIX}category:{category}")
-        for category in categories[:5]
-    ]
+    category_rows = []
+    for start in range(0, min(len(categories), 12), 2):
+        category_rows.append(
+            [
+                InlineKeyboardButton(
+                    category,
+                    callback_data=f"{TRANSACTION_CALLBACK_EDIT_PREFIX}category:{category}",
+                )
+                for category in categories[start:start + 2]
+            ]
+        )
     return InlineKeyboardMarkup(
         [
             [
@@ -612,8 +744,7 @@ def _edit_transaction_keyboard(draft: TransactionDraft) -> InlineKeyboardMarkup:
                 InlineKeyboardButton("Valor", callback_data=f"{TRANSACTION_CALLBACK_EDIT_PREFIX}amount"),
                 InlineKeyboardButton("Descrição", callback_data=f"{TRANSACTION_CALLBACK_EDIT_PREFIX}description"),
             ],
-            category_buttons[:2],
-            category_buttons[2:],
+            *category_rows,
             [
                 InlineKeyboardButton("Hoje", callback_data=f"{TRANSACTION_CALLBACK_EDIT_PREFIX}date:today"),
                 InlineKeyboardButton("Ontem", callback_data=f"{TRANSACTION_CALLBACK_EDIT_PREFIX}date:yesterday"),
@@ -663,17 +794,52 @@ async def maybe_handle_natural_transaction(
 async def handle_correction_step(update: Update, db: AsyncSession, user: User) -> bool:
     """Atualiza o rascunho pendente com a próxima mensagem do usuário."""
     session_svc = await _get_session_service()
-    payload = await session_svc.get_pending_transaction(user.telegram_id)
     user_repo = UserRepository(db)
     step = user.flow_step or ""
     await user_repo.update(user, current_flow=None, flow_step=None)
+    text = (update.message.text or "").strip()
+
+    if step.startswith("saved_tx_") and "|" in step:
+        field, transaction_id_raw = step.split("|", 1)
+        try:
+            transaction_id = uuid.UUID(transaction_id_raw)
+        except ValueError:
+            await update.message.reply_text("Não consegui identificar esse lançamento. Usa /corrigir de novo.")
+            return True
+
+        repo = TransactionRepository(db)
+        transaction = await repo.get_by_id(user.id, transaction_id)
+        if not transaction:
+            await update.message.reply_text("Esse lançamento não foi encontrado. Usa /corrigir para ver os últimos.")
+            return True
+
+        if field == "saved_tx_amount":
+            match = re.search(r"(?:R\$\s*)?(\d+(?:[.,]\d{1,2})?)", text, flags=re.I)
+            if not match:
+                await user_repo.update(user, current_flow="finance_correction", flow_step=step)
+                await update.message.reply_text("Manda só o valor correto, tipo `18,50`.", parse_mode="Markdown")
+                return True
+            amount = Decimal(match.group(1).replace(",", ".")).quantize(Decimal("0.01"))
+            transaction = await repo.update(transaction, amount=amount)
+        elif field == "saved_tx_description":
+            transaction = await repo.update(transaction, description=text[:100] or None)
+        else:
+            await update.message.reply_text("Não reconheci o campo. Usa /corrigir de novo.")
+            return True
+
+        await update.message.reply_text(
+            "✅ Corrigi esse lançamento:\n" + _transaction_line(transaction),
+            reply_markup=_saved_transaction_edit_keyboard(transaction),
+        )
+        return True
+
+    payload = await session_svc.get_pending_transaction(user.telegram_id)
 
     if not payload:
         await update.message.reply_text("Esse lançamento expirou. Manda de novo que eu registro.")
         return True
 
     draft = TransactionDraft.from_payload(payload)
-    text = (update.message.text or "").strip()
 
     if step == "tx_amount":
         match = re.search(r"(?:R\$\s*)?(\d+(?:[.,]\d{1,2})?)", text, flags=re.I)
@@ -713,6 +879,8 @@ async def handle_transaction_callback(update: Update, db: AsyncSession, user: Us
     if not query or not (
         query.data in {TRANSACTION_CALLBACK_CONFIRM, TRANSACTION_CALLBACK_CANCEL, TRANSACTION_CALLBACK_EDIT}
         or query.data.startswith(TRANSACTION_CALLBACK_EDIT_PREFIX)
+        or query.data.startswith(SAVED_TRANSACTION_CALLBACK_PREFIX)
+        or query.data in {RESTART_CALLBACK_CONFIRM, RESTART_CALLBACK_CANCEL}
     ):
         logger.warning(f"❌ Callback inválido: {query.data if query else 'query=None'}")
         return False
@@ -720,6 +888,117 @@ async def handle_transaction_callback(update: Update, db: AsyncSession, user: Us
     logger.info(f"📌 Callback recebido: {query.data} | User: {user.telegram_id}")
 
     session_svc = await _get_session_service()
+
+    if query.data in {RESTART_CALLBACK_CONFIRM, RESTART_CALLBACK_CANCEL}:
+        if query.data == RESTART_CALLBACK_CANCEL:
+            await query.answer("Cancelado")
+            await query.edit_message_text("Fechado, nada foi apagado.")
+            return True
+
+        transaction_count = await TransactionRepository(db).delete_all_for_user(user.id)
+        goal_count = await GoalRepository(db).delete_all_for_user(user.id)
+        await UserRepository(db).update(
+            user,
+            points=0,
+            level=1,
+            streak_days=0,
+            last_entry_date=None,
+            current_flow=None,
+            flow_step=None,
+        )
+        await session_svc.clear_pending_transaction(user.telegram_id)
+        await query.answer("Zerado")
+        await query.edit_message_text(
+            "✅ Restart feito. Apaguei seus lançamentos, metas e progresso de pontos.\n\n"
+            f"Removidos: {transaction_count} lançamentos e {goal_count} metas.\n"
+            "Pode começar de novo mandando algo como `gastei 18,50 no lanche hoje`."
+        )
+        return True
+
+    if query.data.startswith(SAVED_TRANSACTION_CALLBACK_PREFIX):
+        action = query.data.replace(SAVED_TRANSACTION_CALLBACK_PREFIX, "", 1)
+        repo = TransactionRepository(db)
+
+        if action == "cancel":
+            await query.answer("Cancelado")
+            await query.edit_message_text("Beleza, não alterei nada.")
+            return True
+
+        if action.startswith("pick:"):
+            try:
+                transaction_id = uuid.UUID(action.split(":", 1)[1])
+            except ValueError:
+                await query.answer("Inválido")
+                return True
+            transaction = await repo.get_by_id(user.id, transaction_id)
+            if not transaction:
+                await query.answer("Não encontrado")
+                await query.edit_message_text("Esse lançamento não foi encontrado. Usa /corrigir de novo.")
+                return True
+            await query.answer("Escolhe o campo")
+            await query.edit_message_text(
+                "Lançamento selecionado:\n"
+                f"{_transaction_line(transaction)}\n\n"
+                "O que você quer corrigir?",
+                reply_markup=_saved_transaction_edit_keyboard(transaction),
+            )
+            return True
+
+        parts = action.split(":")
+        field = parts[0]
+        try:
+            transaction_id = uuid.UUID(parts[1])
+        except (IndexError, ValueError):
+            await query.answer("Inválido")
+            return True
+        transaction = await repo.get_by_id(user.id, transaction_id)
+        if not transaction:
+            await query.answer("Não encontrado")
+            await query.edit_message_text("Esse lançamento não foi encontrado. Usa /corrigir de novo.")
+            return True
+
+        if field in {"amount", "description"}:
+            await UserRepository(db).update(
+                user,
+                current_flow="finance_correction",
+                flow_step=f"saved_tx_{field}|{transaction.id}",
+            )
+            prompt = "Manda o valor correto, tipo `18,50`." if field == "amount" else "Manda a descrição correta."
+            await query.answer("Pode mandar")
+            await query.edit_message_text(prompt, parse_mode="Markdown")
+            return True
+
+        if field == "type":
+            new_type = "income" if transaction.transaction_type == "expense" else "expense"
+            transaction = await repo.update(
+                transaction,
+                transaction_type=new_type,
+                category=_canonical_category(transaction.category, new_type),
+            )
+        elif field == "category":
+            try:
+                category_index = int(parts[2])
+                categories = INCOME_CATEGORIES if transaction.transaction_type == "income" else EXPENSE_CATEGORIES
+                category = categories[category_index]
+            except (IndexError, ValueError):
+                await query.answer("Categoria inválida")
+                return True
+            transaction = await repo.update(transaction, category=category)
+        elif field == "date_today":
+            transaction = await repo.update(transaction, happened_on=date.today())
+        elif field == "date_yesterday":
+            transaction = await repo.update(transaction, happened_on=date.today() - timedelta(days=1))
+        else:
+            await query.answer("Campo inválido")
+            return True
+
+        await query.answer("Corrigido")
+        await query.edit_message_text(
+            "✅ Corrigi esse lançamento:\n"
+            f"{_transaction_line(transaction)}",
+            reply_markup=_saved_transaction_edit_keyboard(transaction),
+        )
+        return True
 
     if query.data == TRANSACTION_CALLBACK_CANCEL:
         await session_svc.clear_pending_transaction(user.telegram_id)
@@ -848,6 +1127,42 @@ async def handle_gastos_command(update: Update, db: AsyncSession, user: User):
             return
 
     await update.message.reply_text(GASTOS_HELP, parse_mode="Markdown")
+
+
+async def handle_correct_command(update: Update, db: AsyncSession, user: User):
+    repo = TransactionRepository(db)
+    transactions = await repo.list_recent(user.id, limit=8)
+
+    if not transactions:
+        await update.message.reply_text(
+            "Ainda não tem lançamento salvo para corrigir.\n"
+            "Quando tiver algo errado na planilha, usa /corrigir que eu mostro os últimos registros."
+        )
+        return
+
+    lines = ["Qual lançamento você quer corrigir?"]
+    for index, transaction in enumerate(transactions, start=1):
+        lines.append(f"{index}. {_transaction_line(transaction)}")
+
+    await update.message.reply_text(
+        "\n".join(lines),
+        reply_markup=_saved_transaction_list_keyboard(transactions),
+    )
+
+
+async def handle_restart_command(update: Update, db: AsyncSession, user: User):
+    await update.message.reply_text(
+        "Restart apaga seus lançamentos, metas e pontos, mas mantém seu cadastro para você continuar usando o bot.\n\n"
+        "Tem certeza que quer começar do zero?",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("Sim, zerar", callback_data=RESTART_CALLBACK_CONFIRM),
+                    InlineKeyboardButton("Cancelar", callback_data=RESTART_CALLBACK_CANCEL),
+                ]
+            ]
+        ),
+    )
 
 
 async def handle_photo_receipt(update: Update, db: AsyncSession, user: User):

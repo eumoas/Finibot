@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.goal import Goal
 
@@ -72,3 +72,8 @@ class GoalRepository:
         await self.db.commit()
         await self.db.refresh(goal)
         return goal
+
+    async def delete_all_for_user(self, user_id: uuid.UUID) -> int:
+        result = await self.db.execute(delete(Goal).where(Goal.user_id == user_id))
+        await self.db.commit()
+        return result.rowcount or 0

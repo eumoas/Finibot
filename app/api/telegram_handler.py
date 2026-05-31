@@ -27,6 +27,8 @@ COMMANDS = {
     "/gastos": command_router.cmd_gastos,
     "/resumo": command_router.cmd_resumo,
     "/planilha": command_router.cmd_planilha,
+    "/corrigir": command_router.cmd_corrigir,
+    "/restart": command_router.cmd_restart,
     "/aprender": command_router.cmd_aprender,
 }
 

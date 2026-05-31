@@ -59,6 +59,8 @@ HELP_MENU = """🤖 *Fini — Menu*
 /gastos — Ver exemplos de registro
 /resumo — Saldo mensal, categorias e insights
 /planilha — Receber planilha .xlsx do mês
+/corrigir — Corrigir lançamento já salvo
+/restart — Começar do zero
 
 *Metas*
 /meta — Criar nova meta

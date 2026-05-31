@@ -184,6 +184,14 @@ async def cmd_planilha(update: Update, db: AsyncSession, user: User):
     await finance_flow.handle_spreadsheet_command(update, db, user)
 
 
+async def cmd_corrigir(update: Update, db: AsyncSession, user: User):
+    await finance_flow.handle_correct_command(update, db, user)
+
+
+async def cmd_restart(update: Update, db: AsyncSession, user: User):
+    await finance_flow.handle_restart_command(update, db, user)
+
+
 async def cmd_aprender(update: Update, db: AsyncSession, user: User):
     await learning_flow.handle_learning_command(update, db, user)
 

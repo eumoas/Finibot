@@ -52,6 +52,24 @@ def test_parse_lanche_as_alimentacao():
     assert parsed == (Decimal("18.50"), "Alimentação", "lanche")
 
 
+def test_parse_streaming_category():
+    parsed = parse_transaction_args("paguei 29,90 no spotify")
+
+    assert parsed == (Decimal("29.90"), "Streaming", "spotify")
+
+
+def test_parse_vestuario_category():
+    parsed = parse_transaction_args("comprei 120 tenis")
+
+    assert parsed == (Decimal("120.00"), "Vestuário", "tenis")
+
+
+def test_parse_cinema_with_crush_category():
+    parsed = parse_transaction_args("gastei 42 cinema com o crush")
+
+    assert parsed == (Decimal("42.00"), "Cinema e Shows", "cinema crush")
+
+
 def test_parse_viagem_category():
     parsed = parse_transaction_args("gastei R$300 em viagem com a galera")
 
