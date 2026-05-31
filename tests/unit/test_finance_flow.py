@@ -9,12 +9,14 @@ from app.flows.finance_flow import (
     ParsedTransaction,
     parse_transaction_args,
     parse_transaction_draft,
+    _after_transaction_message,
     _month_range,
     _generate_optional_insight,
     _reply_markdown_safe,
 )
 from app.flows import finance_flow
 from app.flows.xlsx_export import build_finance_xlsx
+from app.models.transaction import Transaction
 
 
 def test_parse_expense_command_with_decimal_comma():
@@ -135,6 +137,58 @@ def test_build_finance_xlsx_creates_openpyxl_workbook():
     workbook = load_workbook(BytesIO(data), data_only=False)
     assert workbook.sheetnames == ["Lançamentos", "Resumo", "Metas"]
     assert workbook["Lançamentos"]["E1"].value == "Meio de Pagamento"
+
+
+@pytest.mark.asyncio
+async def test_after_expense_message_always_includes_mini_insight(monkeypatch):
+    user = MagicMock()
+    user.first_name = "Ana"
+    user.monthly_income = Decimal("300.00")
+    user.streak_days = 1
+    transaction = Transaction(
+        transaction_type="expense",
+        amount=Decimal("30.00"),
+        category="Alimentação",
+        description="lanche",
+        happened_on=date(2026, 5, 31),
+    )
+    income = Transaction(
+        transaction_type="income",
+        amount=Decimal("300.00"),
+        category="Mesada",
+        happened_on=date(2026, 5, 31),
+    )
+
+    async def fake_month_transactions(db, user_arg, today):
+        return [income, transaction]
+
+    monkeypatch.setattr(finance_flow, "_month_transactions", fake_month_transactions)
+
+    message = await _after_transaction_message(MagicMock(), user, transaction)
+
+    assert "💡 Esse gasto deixou *Alimentação* em R$30,00 no mês." in message
+    assert "Isso dá cerca de *10%* da sua renda mensal." in message
+
+
+@pytest.mark.asyncio
+async def test_after_income_message_does_not_include_expense_mini_insight(monkeypatch):
+    user = MagicMock()
+    user.monthly_income = Decimal("300.00")
+    transaction = Transaction(
+        transaction_type="income",
+        amount=Decimal("300.00"),
+        category="Mesada",
+        happened_on=date(2026, 5, 31),
+    )
+
+    async def fake_month_transactions(db, user_arg, today):
+        return [transaction]
+
+    monkeypatch.setattr(finance_flow, "_month_transactions", fake_month_transactions)
+
+    message = await _after_transaction_message(MagicMock(), user, transaction)
+
+    assert "💡 Esse gasto deixou" not in message
 
 
 @pytest.mark.asyncio

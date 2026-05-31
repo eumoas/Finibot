@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import asyncio
 import logging
 import unicodedata
 import uuid
@@ -245,7 +246,10 @@ def _normalize(text: str) -> str:
 
 async def _generate_optional_insight(context: dict | str) -> str | None:
     try:
-        insight = await llm_gateway.generate_insight(context)
+        insight = await asyncio.wait_for(llm_gateway.generate_insight(context), timeout=8)
+    except asyncio.TimeoutError:
+        logger.warning("Insight indisponivel por timeout; seguindo sem insight")
+        return None
     except Exception as exc:
         logger.warning("Insight indisponivel; seguindo sem insight: %s", exc)
         return None
@@ -648,6 +652,29 @@ def _transaction_saved_message(transaction: Transaction) -> str:
     )
 
 
+def _expense_mini_insight(
+    transaction: Transaction,
+    category_total: Decimal,
+    total_expenses: Decimal,
+    monthly_income: Decimal,
+) -> str:
+    """Gera um insight educativo simples sem depender do LLM."""
+    parts = [
+        f"Esse gasto deixou *{transaction.category}* em {_money(category_total)} no mês."
+    ]
+
+    if monthly_income > 0:
+        income_pct = category_total / monthly_income * 100
+        parts.append(f"Isso dá cerca de *{income_pct:.0f}%* da sua renda mensal.")
+    elif total_expenses > 0:
+        expense_pct = category_total / total_expenses * 100
+        parts.append(f"Essa categoria representa *{expense_pct:.0f}%* dos seus gastos até agora.")
+    else:
+        parts.append("Acompanhar isso desde o começo ajuda a não descobrir o excesso só no fim do mês.")
+
+    return "💡 " + " ".join(parts)
+
+
 def _transaction_line(transaction: Transaction) -> str:
     label = "receita" if transaction.transaction_type == "income" else "gasto"
     description = f" - {transaction.description}" if transaction.description else ""
@@ -727,6 +754,17 @@ async def _after_transaction_message(
             if item.transaction_type == "expense" and item.category == transaction.category
         )
         monthly_income = Decimal(str(user.monthly_income or 0))
+        lines.extend(
+            [
+                "",
+                _expense_mini_insight(
+                    transaction,
+                    category_total,
+                    summary["expenses"],
+                    monthly_income,
+                ),
+            ]
+        )
         if should_generate_insight(
             float(category_total),
             float(monthly_income),
@@ -745,7 +783,7 @@ async def _after_transaction_message(
             )
             insight = await _generate_optional_insight(context)
             if insight:
-                lines.extend(["", f"💡 {insight}"])
+                lines.extend(["", f"✨ {insight}"])
 
     return "\n".join(lines)
 
