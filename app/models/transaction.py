@@ -15,7 +15,7 @@ EXPENSE_CATEGORIES = [
     "Moradia", "Lazer", "Outros",
 ]
 INCOME_CATEGORIES = [
-    "Mesada", "Estágio", "Freelas", "Presentes", "Bolsa/Auxílio", "Outros",
+    "Mesada", "Salário", "Estágio", "Freelas", "Presentes", "Bolsa/Auxílio", "Outros",
 ]
 
 

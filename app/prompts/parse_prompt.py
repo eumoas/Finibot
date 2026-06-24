@@ -22,7 +22,7 @@ CATEGORIAS VÁLIDAS para expense:
 Alimentação, Transporte, Streaming, Cinema e Shows, Rolês e Encontros, Games, Vestuário, Beleza, Educação, Saúde, Compras, Viagem, Presentes, Moradia, Lazer, Outros
 
 CATEGORIAS VÁLIDAS para income:
-  Mesada, Estágio, Freelas, Presentes, Bolsa/Auxílio, Outros
+  Mesada, Salário, Estágio, Freelas, Presentes, Bolsa/Auxílio, Outros
 
 REGRAS DE CLASSIFICAÇÃO:
 - lanche, restaurante, delivery, mercado, padaria → Alimentação
@@ -41,7 +41,8 @@ REGRAS DE CLASSIFICAÇÃO:
 - aluguel, energia, água, internet de casa → Moradia
 - dinheiro de presente recebido → Presentes (income)
 - mesada → Mesada (income)
-- estágio, salário → Estágio (income)
+- salário, pagamento mensal, CLT → Salário (income)
+- estágio → Estágio (income)
 - freela, bico, serviço avulso → Freelas (income)
 - bolsa, auxílio → Bolsa/Auxílio (income)
 

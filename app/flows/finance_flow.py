@@ -31,6 +31,7 @@ INCOME_HELP = """💰 *Registrar receita*
 
 Use assim:
 `/receita 200 mesada`
+`/receita 1200 salario`
 `/receita 450 estagio abril`
 `/receita 80 freela design`"""
 
@@ -172,7 +173,7 @@ CATEGORY_KEYWORDS = {
     "saude": {"dentista", "farmacia", "medico", "remedio", "saude"},
     "moradia": {"agua", "aluguel", "condominio", "energia", "internet", "luz"},
     "mesada": {"mesada"},
-    "salario": {"bolsa", "estagio", "freela", "pagamento", "salario"},
+    "salario": {"pagamento", "salario"},
     "presente": {"presente", "presentes", "pix"},
     "bolsa_auxilio": {"auxilio", "auxílio", "bolsa"},
 }
@@ -329,7 +330,7 @@ CATEGORY_ALIASES = {
     "presentes": "Presentes",
     "mesada": "Mesada",
     "estagio": "Estágio",
-    "salario": "Estágio",
+    "salario": "Salário",
     "bolsa": "Bolsa/Auxílio",
     "bolsa_auxilio": "Bolsa/Auxílio",
     "auxilio": "Bolsa/Auxílio",
