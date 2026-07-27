@@ -18,7 +18,10 @@ def make_user(points=0, level=1):
     user.points = points
     user.level = level
     user.last_entry_date = None
-    user.streak_days = 0
+    user.constancia_total = 0
+    user.constancia_mes_atual = 0
+    user.constancia_mes_referencia = None
+    user.constancia_marcos_atingidos = []
     return user
 
 
@@ -88,7 +91,7 @@ def test_get_level_up_message():
 
 
 def test_points_map_has_expected_actions():
-    assert len(POINTS_MAP) == 17
+    assert len(POINTS_MAP) == 20
     for action in [
         "first_entry_of_day",
         "income_registered",
@@ -98,6 +101,10 @@ def test_points_map_has_expected_actions():
         "goal_completed",
         "simulator_first_use",
         "qa_question",
+        "constancia_7_dias",
+        "constancia_15_dias",
+        "constancia_30_dias",
+        "constancia_60_dias",
         "learning_topic_viewed",
         "learning_quiz_correct",
         "learning_challenge_done",
@@ -106,32 +113,105 @@ def test_points_map_has_expected_actions():
 
 
 @pytest.mark.asyncio
-async def test_update_streak_first_entry():
+async def test_update_constancia_first_entry():
     user = make_user()
     user_repo = AsyncMock()
     updated_user = make_user()
-    updated_user.streak_days = 1
+    updated_user.constancia_total = 1
+    updated_user.constancia_mes_atual = 1
     user_repo.update.return_value = updated_user
 
     engine = GamificationEngine(user_repo)
-    streak = await engine.update_streak(user, today=date(2026, 5, 24))
+    result = await engine.update_constancia(user, today=date(2026, 5, 24))
 
-    assert streak == 1
+    assert result.total == 1
+    assert result.mes_atual == 1
+    assert result.marcos_novos == []
     user_repo.update.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_update_streak_same_day_does_not_update():
+async def test_update_constancia_same_day_does_not_update():
     user = make_user()
     user.last_entry_date = date(2026, 5, 24)
-    user.streak_days = 3
+    user.constancia_total = 3
+    user.constancia_mes_atual = 3
     user_repo = AsyncMock()
 
     engine = GamificationEngine(user_repo)
-    streak = await engine.update_streak(user, today=date(2026, 5, 24))
+    result = await engine.update_constancia(user, today=date(2026, 5, 24))
 
-    assert streak == 3
+    assert result.total == 3
+    assert result.mes_atual == 3
     user_repo.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_constancia_never_decreases_after_gap():
+    """Uma lacuna de vários dias sem registro não zera a constância."""
+    user = make_user()
+    user.last_entry_date = date(2026, 5, 1)
+    user.constancia_total = 6
+    user.constancia_mes_atual = 6
+    user.constancia_mes_referencia = date(2026, 5, 1)
+    user_repo = AsyncMock()
+    updated_user = make_user()
+    updated_user.constancia_total = 7
+    updated_user.constancia_mes_atual = 7
+    user_repo.update.return_value = updated_user
+
+    engine = GamificationEngine(user_repo)
+    result = await engine.update_constancia(user, today=date(2026, 5, 20))
+
+    assert result.total == 7
+    assert result.marcos_novos == [7]
+    _, kwargs = user_repo.update.call_args
+    assert kwargs["constancia_total"] == 7
+    assert kwargs["constancia_mes_atual"] == 7
+
+
+@pytest.mark.asyncio
+async def test_update_constancia_resets_only_monthly_counter_on_new_month():
+    user = make_user()
+    user.last_entry_date = date(2026, 5, 30)
+    user.constancia_total = 10
+    user.constancia_mes_atual = 10
+    user.constancia_mes_referencia = date(2026, 5, 1)
+    user_repo = AsyncMock()
+    updated_user = make_user()
+    updated_user.constancia_total = 11
+    updated_user.constancia_mes_atual = 1
+    user_repo.update.return_value = updated_user
+
+    engine = GamificationEngine(user_repo)
+    result = await engine.update_constancia(user, today=date(2026, 6, 1))
+
+    assert result.total == 11
+    assert result.mes_atual == 1
+    _, kwargs = user_repo.update.call_args
+    assert kwargs["constancia_total"] == 11
+    assert kwargs["constancia_mes_atual"] == 1
+
+
+@pytest.mark.asyncio
+async def test_update_constancia_does_not_regrant_achieved_marco():
+    user = make_user()
+    user.last_entry_date = date(2026, 5, 6)
+    user.constancia_total = 7
+    user.constancia_mes_atual = 7
+    user.constancia_mes_referencia = date(2026, 5, 1)
+    user.constancia_marcos_atingidos = [7]
+    user_repo = AsyncMock()
+    updated_user = make_user()
+    updated_user.constancia_total = 8
+    user_repo.update.return_value = updated_user
+
+    engine = GamificationEngine(user_repo)
+    result = await engine.update_constancia(user, today=date(2026, 5, 7))
+
+    assert result.marcos_novos == []
+    _, kwargs = user_repo.update.call_args
+    assert kwargs["constancia_marcos_atingidos"] == [7]
 
 
 def test_all_levels_defined():

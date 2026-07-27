@@ -8,12 +8,14 @@ Tom: amigável e direto, como um amigo que entende de dinheiro.
 Termine com uma observação útil ou pergunta reflexiva.
 Não use linguagem de banco ou termos formais.
 Use no máximo 2 emojis.
+Nunca mencione perda de progresso, urgência de retorno ou risco de "quebrar"
+uma sequência — reconheça apenas o que já foi feito, sem projetar perda.
 """
 
 # Lógica de quando disparar insight:
 # - Quando o gasto de uma categoria ultrapassa 30% da renda mensal
 # - Quando o saldo mensal fica negativo pela primeira vez no mês
-# - Quando o usuário fecha o 7º dia consecutivo de registros (streak)
+# - Quando o usuário fecha o 7º dia de registro no mês (constância)
 # - Quando uma categoria tem >5 lançamentos no mês
 # - No 20º dia do mês (projeção de fechamento)
 
@@ -23,14 +25,14 @@ def should_generate_insight(
     monthly_income: float,
     category_count: int,
     balance: float,
-    streak_days: int,
+    constancia_dias: int,
 ) -> bool:
     """Decide se deve gerar insight após um lançamento."""
     if monthly_income > 0 and category_total / monthly_income > 0.30:
         return True
     if balance < 0:
         return True
-    if streak_days == 7:
+    if constancia_dias == 7:
         return True
     if category_count > 5:
         return True
@@ -44,7 +46,7 @@ def build_insight_context(
     monthly_income: float,
     balance: float,
     total_expenses: float,
-    streak_days: int,
+    constancia_dias: int,
 ) -> str:
     """Constrói contexto para o LLM gerar insight."""
     income_pct = (
@@ -59,5 +61,5 @@ def build_insight_context(
         f"Total de gastos do mês: R${total_expenses:.2f}\n"
         f"Saldo do mês: R${balance:.2f}\n"
         f"Renda mensal informada: R${monthly_income:.2f}\n"
-        f"Streak de registros: {streak_days} dias consecutivos"
+        f"Dias com registro este mês: {constancia_dias}"
     )

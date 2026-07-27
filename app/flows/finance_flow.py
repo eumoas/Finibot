@@ -21,7 +21,7 @@ from app.models.transaction import EXPENSE_CATEGORIES, INCOME_CATEGORIES, Transa
 from app.repositories.goal_repo import GoalRepository
 from app.repositories.transaction_repo import TransactionRepository
 from app.repositories.user_repo import UserRepository
-from app.services.gamification import GamificationEngine
+from app.services.gamification import MARCO_ACTIONS, GamificationEngine
 from app.services.llm_service import llm_gateway
 from app.prompts.insight_prompt import build_insight_context, should_generate_insight
 
@@ -771,7 +771,7 @@ async def _after_transaction_message(
             float(monthly_income),
             category_count,
             float(summary["balance"]),
-            user.streak_days,
+            user.constancia_mes_atual,
         ):
             context = build_insight_context(
                 user.first_name or "amigo",
@@ -780,7 +780,7 @@ async def _after_transaction_message(
                 float(monthly_income),
                 float(summary["balance"]),
                 float(summary["expenses"]),
-                user.streak_days,
+                user.constancia_mes_atual,
             )
             insight = await _generate_optional_insight(context)
             if insight:
@@ -966,7 +966,10 @@ async def handle_transaction_callback(update: Update, db: AsyncSession, user: Us
             user,
             points=0,
             level=1,
-            streak_days=0,
+            constancia_total=0,
+            constancia_mes_atual=0,
+            constancia_mes_referencia=None,
+            constancia_marcos_atingidos=[],
             last_entry_date=None,
             current_flow=None,
             flow_step=None,
@@ -1160,7 +1163,7 @@ async def handle_transaction_callback(update: Update, db: AsyncSession, user: Us
         first_entry_today = user.last_entry_date != date.today()
         transaction = await _save_transaction_draft(db, user, draft)
         logger.info(f"✅ Transação salva no BD: ID={transaction.id}, Valor={transaction.amount}")
-        streak_days = await gamification.update_streak(user)
+        constancia = await gamification.update_constancia(user)
 
         points_messages = []
         if first_entry_today:
@@ -1169,9 +1172,9 @@ async def handle_transaction_callback(update: Update, db: AsyncSession, user: Us
         if transaction.transaction_type == "income":
             result = await gamification.award(user, "income_registered")
             points_messages.append(f"+{result.points_gained} receita registrada")
-        if streak_days == 7:
-            result = await gamification.award(user, "seven_day_streak")
-            points_messages.append(f"+{result.points_gained} streak de 7 dias")
+        for marco in constancia.marcos_novos:
+            result = await gamification.award(user, MARCO_ACTIONS[marco])
+            points_messages.append(f"+{result.points_gained} {marco} dias de constância")
 
         await session_svc.clear_pending_transaction(user.telegram_id)
         await query.answer("Salvo")

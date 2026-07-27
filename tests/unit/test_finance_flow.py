@@ -144,7 +144,7 @@ async def test_after_expense_message_always_includes_mini_insight(monkeypatch):
     user = MagicMock()
     user.first_name = "Ana"
     user.monthly_income = Decimal("300.00")
-    user.streak_days = 1
+    user.constancia_mes_atual = 1
     transaction = Transaction(
         transaction_type="expense",
         amount=Decimal("30.00"),

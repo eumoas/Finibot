@@ -1,12 +1,19 @@
-"""Gamification Engine — pontos, níveis e conquistas."""
+"""Gamification Engine — pontos, níveis e conquistas.
+
+Critério de design: nenhuma mecânica do Fini pode operar por aversão à perda
+ou por recompensa incerta. Pontos, níveis, constância e desafios só somam;
+nada é retirado do usuário por inatividade.
+"""
 from __future__ import annotations
 import logging
-from dataclasses import dataclass
-from datetime import date, timedelta
+from dataclasses import dataclass, field
+from datetime import date
 from app.models.user import User
 from app.repositories.user_repo import UserRepository
 
 logger = logging.getLogger(__name__)
+
+CONSTANCIA_MARCOS = (7, 15, 30, 60)
 
 LEVELS = {
     1: {"name": "🌱 Aprendiz", "min_points": 0},
@@ -30,15 +37,24 @@ POINTS_MAP = {
     "goal_completed": 50,
     "simulator_first_use": 30,
     "qa_question": 5,
-    "seven_day_streak": 80,
+    "constancia_7_dias": 80,
+    "constancia_15_dias": 120,
+    "constancia_30_dias": 180,
+    "constancia_60_dias": 250,
     "learning_topic_viewed": 5,
     "learning_quiz_correct": 15,
     "learning_challenge_done": 25,
 }
 
 POINTS_ALIASES = {
-    "streak_7days": "seven_day_streak",
     "quiz_correct": "qa_question",
+}
+
+MARCO_ACTIONS = {
+    7: "constancia_7_dias",
+    15: "constancia_15_dias",
+    30: "constancia_30_dias",
+    60: "constancia_60_dias",
 }
 
 LEVEL_UP_MESSAGES = {
@@ -70,6 +86,13 @@ class AwardResult:
     level_name: str
     level_up_message: str | None
     leveled_up: bool
+
+
+@dataclass
+class ConstanciaResult:
+    mes_atual: int
+    total: int
+    marcos_novos: list[int] = field(default_factory=list)
 
 
 def get_level_name(level: int) -> str:
@@ -116,22 +139,47 @@ class GamificationEngine:
             leveled_up=(new_level > old_level),
         )
 
-    async def update_streak(self, user: User, today: date | None = None) -> int:
-        """Atualiza streak diário de lançamentos e retorna o streak atual."""
+    async def update_constancia(self, user: User, today: date | None = None) -> ConstanciaResult:
+        """Atualiza os contadores de constância e retorna o resultado.
+
+        Os contadores só aumentam: não há reset por inatividade. A contagem
+        mensal reinicia na virada do mês, mas o total acumulado nunca zera.
+        Marcos (7/15/30/60 dias) são concedidos uma única vez e não se perdem.
+        """
         current = today or date.today()
         last_entry = user.last_entry_date
-        current_streak = user.streak_days or 0
+        total = user.constancia_total or 0
+        mes_atual = user.constancia_mes_atual or 0
+        mes_referencia = user.constancia_mes_referencia
+        marcos_atingidos = list(user.constancia_marcos_atingidos or [])
 
         if last_entry == current:
-            return current_streak
-        if last_entry == current - timedelta(days=1):
-            streak_days = current_streak + 1
-        else:
-            streak_days = 1
+            return ConstanciaResult(mes_atual=mes_atual, total=total, marcos_novos=[])
+
+        novo_total = total + 1
+        mesmo_mes = mes_referencia is not None and (
+            mes_referencia.year,
+            mes_referencia.month,
+        ) == (current.year, current.month)
+        novo_mes_atual = mes_atual + 1 if mesmo_mes else 1
+
+        marcos_novos = [
+            marco
+            for marco in CONSTANCIA_MARCOS
+            if novo_total >= marco and marco not in marcos_atingidos
+        ]
+        novos_marcos_atingidos = marcos_atingidos + marcos_novos
 
         updated_user = await self.user_repo.update(
             user,
             last_entry_date=current,
-            streak_days=streak_days,
+            constancia_total=novo_total,
+            constancia_mes_atual=novo_mes_atual,
+            constancia_mes_referencia=current.replace(day=1),
+            constancia_marcos_atingidos=novos_marcos_atingidos,
         )
-        return updated_user.streak_days
+        return ConstanciaResult(
+            mes_atual=updated_user.constancia_mes_atual,
+            total=updated_user.constancia_total,
+            marcos_novos=marcos_novos,
+        )

@@ -2,7 +2,7 @@
 import uuid
 from datetime import date, datetime
 from typing import Optional
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, Integer, Numeric, String, func
+from sqlalchemy import ARRAY, BigInteger, Boolean, Date, DateTime, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -28,8 +28,17 @@ class User(Base):
     points: Mapped[int] = mapped_column(Integer, default=0)
     level: Mapped[int] = mapped_column(Integer, default=1)
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
-    streak_days: Mapped[int] = mapped_column(Integer, default=0)
     last_entry_date: Mapped[Optional[date]] = mapped_column(Date)
+
+    # Constância: contadores de dias com registro. Nunca decrescem — não há
+    # mecânica de perda/reset por inatividade (ver critério de design em
+    # app/services/gamification.py).
+    constancia_total: Mapped[int] = mapped_column(Integer, default=0)
+    constancia_mes_atual: Mapped[int] = mapped_column(Integer, default=0)
+    constancia_mes_referencia: Mapped[Optional[date]] = mapped_column(Date)
+    constancia_marcos_atingidos: Mapped[list[int]] = mapped_column(
+        ARRAY(Integer), default=list
+    )
     report_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
