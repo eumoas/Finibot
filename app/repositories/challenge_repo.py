@@ -7,18 +7,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.challenge import Challenge, UserChallenge
 
 
+def _weekly_index(year: int, week_number: int, count: int) -> int:
+    """Índice determinístico de rotação — mesma semana sempre gera o mesmo desafio.
+
+    Substitui sorteio aleatório: o valor do desafio da semana não pode depender
+    de acaso (critério de design contra recompensa em razão variável).
+    """
+    return (year * 53 + week_number) % count
+
+
 class ChallengeRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_random_active(self, category: str | None = None) -> Challenge | None:
-        from sqlalchemy import func as sql_func
+    async def get_weekly_challenge(self, category: str | None = None) -> Challenge | None:
         query = select(Challenge).where(Challenge.active == True)
         if category:
             query = query.where(Challenge.category == category)
-        query = query.order_by(sql_func.random()).limit(1)
+        query = query.order_by(Challenge.code)
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        challenges = result.scalars().all()
+        if not challenges:
+            return None
+        iso_date = datetime.now(timezone.utc).isocalendar()
+        index = _weekly_index(iso_date.year, iso_date.week, len(challenges))
+        return challenges[index]
 
     async def get_user_challenge_this_week(
         self, user_id: uuid.UUID

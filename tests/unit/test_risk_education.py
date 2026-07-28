@@ -11,5 +11,6 @@ def test_betting_response_is_educational():
     response = betting_education_response()
 
     assert "risco" in response.lower()
-    assert "nunca use dinheiro de conta" in response.lower()
-    assert "recuperar prejuízo" in response.lower()
+    assert "não são um caminho financeiro saudável" in response.lower()
+    assert "caps" in response.lower()
+    assert "ubs" in response.lower()

@@ -392,7 +392,7 @@ Input: "Paguei R$12 no ônibus ontem"
 Parse: tipo=despesa | valor=12.00 | categoria=Transporte | data=ontem | desc="Ônibus"
 
 Input: "Netflix R$37 mês passado"
-Parse: tipo=despesa | valor=37.00 | categoria=Assinaturas | data=1º do mês passado | desc="Netflix"
+Parse: tipo=despesa | valor=37.00 | categoria=Streaming | data=1º do mês passado | desc="Netflix"
 
 Input: "freela de R$150 na semana passada"
 Parse: tipo=receita | valor=150.00 | categoria=Freelas | data=segunda da semana passada | desc="Freela"
@@ -429,16 +429,23 @@ Bot: ✅ Anotado! +10 pts 🌱 Aprendiz
 #### 2.9.2 Categorias de despesas e receitas
 
 ```
-DESPESAS (9 categorias):
-  Alimentação    → lanches, restaurante, delivery, supermercado
-  Transporte     → ônibus, metrô, Uber, combustível, bike
-  Lazer          → cinema, shows, jogos, balada, passeios
-  Assinaturas    → Netflix, Spotify, iCloud, apps, academia
-  Educação       → material escolar, cursos, livros, escola
-  Saúde          → remédios, consulta, academia (saúde)
-  Compras        → roupas, tênis, acessórios, eletrônicos
-  Presente       → presentes para outras pessoas
-  Outros         → qualquer coisa não categorizada
+DESPESAS (16 categorias):
+  Alimentação        → lanche, restaurante, delivery, mercado, padaria
+  Transporte         → ônibus, metrô, Uber, táxi, combustível, bilhete, passagem
+  Streaming          → Netflix, Spotify, Amazon Prime, Disney, YouTube Premium, iCloud
+  Cinema e Shows     → cinema, show, teatro, ingresso de filme
+  Rolês e Encontros  → passeio, rolê, encontro, date, festa, balada, shopping
+  Games              → game, jogo, Steam, PSN, Xbox
+  Vestuário          → roupa, tênis, camiseta, look, vestido, boné
+  Beleza             → cabelo, corte, unha, maquiagem, perfume, salão
+  Educação           → escola, faculdade, curso, livro (estudo), material, apostila
+  Saúde              → remédio, consulta, dentista, hospital, farmácia
+  Compras            → celular, notebook, eletrônico, fone, acessório
+  Viagem             → viagem, hotel, passagem de viagem
+  Presentes          → presentes para outras pessoas
+  Moradia            → aluguel, energia, água, internet de casa
+  Lazer              → qualquer lazer não coberto pelas categorias acima
+  Outros             → qualquer coisa não categorizada
 
 RECEITAS (7 categorias):
   Mesada         → valor fixo recebido dos pais/responsáveis
@@ -471,7 +478,7 @@ RECEITAS (7 categorias):
 ❤️ GASTOS: R$247,30 (82% da renda)
   🍔 Alimentação..... R$89,00  (30%) ← MAIOR GASTO
   🚌 Transporte...... R$68,00  (23%)
-  📱 Assinaturas..... R$37,00  (12%)
+  📱 Streaming....... R$37,00  (12%)
   🛍️ Compras......... R$31,30  (10%)
   🎮 Lazer........... R$22,00  ( 7%)
 
@@ -527,7 +534,7 @@ ABA 2 — Resumo (mês/ano do relatório)
 │ DESPESAS POR CATEGORIA       │              │          │
 │ Alimentação                  │ R$89,00      │  30%     │
 │ Transporte                   │ R$68,00      │  23%     │
-│ Assinaturas                  │ R$37,00      │  12%     │
+│ Streaming                     │ R$37,00      │  12%     │
 │ Compras                      │ R$31,30      │  10%     │
 │ Lazer                        │ R$22,00      │   7%     │
 └──────────────────────────────┴──────────────┴──────────┘

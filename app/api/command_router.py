@@ -145,7 +145,7 @@ async def cmd_desafio(update: Update, db: AsyncSession, user: User):
             )
         return
 
-    challenge = await challenge_repo.get_random_active()
+    challenge = await challenge_repo.get_weekly_challenge()
     if not challenge:
         await update.message.reply_text("😅 Sem desafios disponíveis no momento. Volta em breve!")
         return
