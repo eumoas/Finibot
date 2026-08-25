@@ -1,6 +1,6 @@
 # 📐 SDD — Software Design Document
 ## Fini: Seu Parceiro Financeiro
-**Versão:** 2.0 | **Data:** 2026-05-23 | **Revisão de:** SDD v1.2
+**Versão:** 2.1 | **Data:** 2026-06-24 | **Revisão de:** SDD v2.0
 
 ---
 
@@ -57,7 +57,7 @@ e motivação a esse ciclo — não como fins em si mesmos.
 | **Monitoramento** | GlitchTip (Sentry OSS clone) | Gratuito, open-source |
 | **CI/CD** | GitHub Actions | Gratuito para repos públicos |
 | **Containerização** | Docker Compose | Dev e produção com um comando |
-| **Hospedagem** | Fly.io (backend) + Supabase (DB) | Free tiers suficientes para MVP |
+| **Hospedagem** | Railway (backend) + Supabase (DB) | Deploy via GitHub, free tiers suficientes para MVP |
 
 ### 2.2 Diagrama da Arquitetura
 
@@ -201,7 +201,7 @@ CREATE TABLE transactions (
     --   'Alimentação'|'Transporte'|'Lazer'|'Assinaturas'|'Educação'|
     --   'Saúde'|'Compras'|'Presente'|'Outros'
     -- Categorias válidas para income:
-    --   'Mesada'|'Estágio'|'Freelas'|'Presente'|'Outros'
+    --   'Mesada'|'Salário'|'Estágio'|'Freelas'|'Presente'|'Outros'
     description      TEXT,
     happened_on      DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at       TIMESTAMP DEFAULT NOW(),
@@ -305,7 +305,7 @@ EXPENSE_CATEGORIES = [
     "Alimentação", "Transporte", "Lazer", "Assinaturas",
     "Educação", "Saúde", "Compras", "Presente", "Outros"
 ]
-INCOME_CATEGORIES = ["Mesada", "Estágio", "Freelas", "Presente", "Outros"]
+INCOME_CATEGORIES = ["Mesada", "Salário", "Estágio", "Freelas", "Presentes", "Bolsa/Auxílio", "Outros"]
 
 class Transaction(Base):
     __tablename__ = "transactions"
@@ -376,7 +376,8 @@ REGRAS DE CLASSIFICAÇÃO:
 - presente pra alguém → Presente (expense)
 - dinheiro de presente recebido → Presente (income)
 - mesada → Mesada (income)
-- estágio, salário → Estágio (income)
+- salário, pagamento mensal, CLT → Salário (income)
+- estágio → Estágio (income)
 - freela, bico, serviço avulso → Freelas (income)
 
 TRATAMENTO DE DATAS:
@@ -1174,7 +1175,7 @@ Tópicos MVP:
 | L06 | Metas financeiras | Valor, prazo e planejamento |
 | L07 | Planejamento mensal | Prioridades e previsão |
 | L08 | Consumo consciente | Necessidade, desejo e impulso |
-| L09 | Bets e apostas | Risco, probabilidade e proteção financeira |
+| L09 | Bets e apostas | Por que apostas não são caminho financeiro saudável; onde buscar ajuda |
 
 ### Fluxo
 
@@ -1692,7 +1693,7 @@ def test_level_above_2000():
 
 | Serviço | Uso | Free Tier |
 |---|---|---|
-| **Fly.io** | Backend FastAPI | 3 VMs 256MB |
+| **Railway** | Backend FastAPI | Deploy via GitHub |
 | **Supabase** | PostgreSQL | 500MB + conexões ilimitadas |
 | **Upstash** | Redis | 10k comandos/dia |
 | **Groq** | LLM principal | 14.400 tokens/min |
@@ -1759,7 +1760,7 @@ docker compose exec fini-api pytest tests/ -v --cov=app
 
 | Item | Custo/Mês |
 |---|---|
-| Fly.io (backend) | R$0 |
+| **Railway** (backend) | R$0 |
 | Supabase (PostgreSQL) | R$0 |
 | Upstash (Redis) | R$0 |
 | Groq (LLM OSS) | R$0 |
@@ -1783,5 +1784,5 @@ Semana 11+  → Piloto com estudantes + coleta de feedback + ajustes
 
 ---
 
-*Fini — Seu Parceiro Financeiro | SDD v2.0 | 2026-05-23*
-*Revisão de: SDD v1.2 (2026-04-27)*
+*Fini — Seu Parceiro Financeiro | SDD v2.1 | 2026-06-24*
+*Revisão de: SDD v2.0 (2026-05-23)*
