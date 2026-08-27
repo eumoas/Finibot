@@ -1,6 +1,6 @@
 # Prompt para alteração no Fini
 
-Cole o texto abaixo no Claude Code, na raiz do repositório do Fini.
+Cole o texto abaixo na ferramenta de código, na raiz do repositório do Fini.
 
 ---
 

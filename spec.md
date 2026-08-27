@@ -297,7 +297,7 @@ Outros
 |---|---|
 | C1 | O canal DEVE ser Telegram (decisão confirmada) |
 | C2 | O custo operacional DEVE ser < R$50/mês no MVP |
-| C3 | O LLM DEVE ser open-source (sem Claude, GPT-4 ou modelos proprietários) |
+| C3 | O LLM DEVE ser open-source (sem modelos proprietários como GPT-4) |
 | C4 | O backend DEVE ser em Python (para compatibilidade com bibliotecas de ML para análise futura) |
 | C5 | O sistema NÃO DEVE solicitar login ou senha ao usuário (identificação apenas pelo `telegram_id`) |
 | C6 | O bot NÃO DEVE armazenar fotos, áudios ou arquivos enviados pelos usuários |

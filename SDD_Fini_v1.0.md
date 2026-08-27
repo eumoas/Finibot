@@ -83,7 +83,7 @@ Indicadores sugeridos para validação:
 
 | Componente | PRD Original (proprietário) | ✅ Proposta Open-Source |
 |---|---|---|
-| **LLM / IA** | Claude API (Anthropic) | **Ollama** + `llama3.2` ou `gemma3:4b` (local) / **OpenRouter** com modelos OSS como `mistral-7b` como fallback gerenciado |
+| **LLM / IA** | API proprietária (pago) | **Ollama** + `llama3.2` ou `gemma3:4b` (local) / **OpenRouter** com modelos OSS como `mistral-7b` como fallback gerenciado |
 | **Canal de Mensagens** | WhatsApp Business API (Meta) | ✅ **Telegram Bot API** — 100% gratuito, sem aprovação, sem número comercial. Token gerado em < 1 min via @BotFather |
 | **Backend** | Node.js / FastAPI no Railway | **FastAPI** (Python) + **Docker Compose** — auto-hospedado ou no **Fly.io** (free tier generoso) |
 | **Banco de Dados** | Supabase (PostgreSQL) | **PostgreSQL** diretamente (via Docker) + **SQLAlchemy** ORM |
@@ -138,7 +138,7 @@ Indicadores sugeridos para validação:
 | **Ollama + Gemma 3 (4B)** | Local / OSS | Gratuito | ✅ Máxima | Muito boa | MVP local / dev |
 | **OpenRouter (Mistral 7B OSS)** | API / OSS | ~$0.07/1M tokens | Média | Boa | Produção low-cost |
 | **Groq + Llama 3 (70B)** | API / OSS | Free tier generoso | Média | Excelente | Produção MVP |
-| ~~Claude Sonnet~~ | API proprietária | $3/1M tokens | Baixa | Excelente | Evitar |
+| ~~Modelo proprietário~~ | API proprietária | Custo elevado | Baixa | Excelente | Evitar |
 
 > **Decisão:** Usar **Groq API** (free tier) com `llama-3.3-70b-versatile` em produção MVP. É OSS, tem latência < 500ms, e o free tier cobre largamente as necessidades do piloto. Fallback: `gemma3:4b` via Ollama no servidor.
 
